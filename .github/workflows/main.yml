@@ -1,0 +1,44 @@
+name: Build patched Tuya bridge
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout DoorbellTuya
+        uses: actions/checkout@v4
+
+      - name: Download PR 33 source
+        run: |
+          git clone --depth 1 --branch fix/rtsp-stream-lockup \
+            https://github.com/YaannnTech/tuya-ipc-terminal.git /tmp/pr33
+
+      - name: Apply PR 33 RTSP fixes
+        run: |
+          cp /tmp/pr33/pkg/rtsp/*.go bridge-src/pkg/rtsp/
+          cp /tmp/pr33/pkg/tuya/api.go bridge-src/pkg/tuya/api.go
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: bridge-src/go.mod
+          cache-dependency-path: bridge-src/go.sum
+
+      - name: Build linux amd64
+        working-directory: bridge-src
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: |
+          go build -o tuya-ipc-terminal-linux-amd64 .
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: tuya-ipc-terminal-linux-amd64-pr33
+          path: bridge-src/tuya-ipc-terminal-linux-amd64
+          if-no-files-found: error
